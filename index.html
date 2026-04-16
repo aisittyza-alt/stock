@@ -119,7 +119,7 @@ input,select,textarea{font-family:var(--fn);}
 .br{display:flex;align-items:center;gap:9px;margin-bottom:8px;}
 .bl{font-size:12px;color:var(--t2);width:140px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .bt{flex:1;height:7px;background:var(--s3);border-radius:4px;overflow:hidden;}
-.bf{height:100%;border-radius:4px;transition:width .7s ease;}
+.bf{height:100%;border-radius:4px;width:0;transition:width .8s cubic-bezier(.4,0,.2,1);}
 .bv{font-size:11px;font-family:var(--mo);color:var(--t2);width:28px;text-align:right;}
 .alist{display:flex;flex-direction:column;gap:7px;}
 .aitem{background:var(--w);border:1.5px solid var(--bdr);border-radius:var(--r);padding:11px 14px;display:flex;align-items:center;gap:11px;box-shadow:var(--sh);}
@@ -350,9 +350,6 @@ input,select,textarea{font-family:var(--fn);}
       </div>
       <h1 id="orgN">Lab Stock System</h1>
       <p id="orgS">ระบบจัดการ Reagent — Real-time Sync</p>
-      <div style="margin-top:5px;cursor:pointer;" onclick="document.getElementById('logoFile').click()">
-        <span style="font-size:11px;color:var(--t3);text-decoration:underline;">📷 อัปโหลดโลโก้</span>
-      </div>
     </div>
     <div class="fg"><label>Username</label><input type="text" id="lu" placeholder="ชื่อผู้ใช้" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <div class="fg"><label>Password</label><input type="password" id="lp" placeholder="รหัสผ่าน" onkeydown="if(event.key==='Enter')doLogin()"></div>
@@ -412,8 +409,8 @@ input,select,textarea{font-family:var(--fn);}
         <h2>🧪 รายการ Reagent</h2>
         <div style="display:flex;gap:7px;flex-wrap:wrap;">
           <button class="btn-gh" onclick="openScan()">📷 สแกน</button>
-          <button class="btn-gh" onclick="document.getElementById('xlFile').click()">📊 Import Excel</button>
-          <button class="btn-gh" onclick="downloadStockTemplate()">⬇️ Template Stock</button>
+          <button class="btn-gh" id="btnImport" onclick="document.getElementById('xlFile').click()" style="display:none">📊 Import Excel</button>
+          <button class="btn-gh" id="btnTemplate" onclick="downloadStockTemplate()" style="display:none">⬇️ Template Stock</button>
           <input type="file" id="xlFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importExcel(event)">
           <button class="btn-p" id="btnAdd" onclick="openAdd()" style="display:none">＋ เพิ่ม</button>
         </div>
@@ -998,7 +995,8 @@ input,select,textarea{font-family:var(--fn);}
   </div>
   <div class="fg">
     <label>✈️ Telegram Chat ID <span style="font-weight:400;color:var(--grn);">(สำหรับแจ้งเตือน Approve/Reject ตรงถึงตัว)</span></label>
-    <input type="text" id="u-tgid" placeholder="เช่น 123456789" style="font-family:var(--mo);font-size:13px;">
+    <input type="text" id="u-tgid" placeholder="เช่น 123456789 หรือ -100xxxxxxxxxx" style="font-family:var(--mo);font-size:13px;" oninput="validateTgId(this)">
+    <div id="u-tgid-err" style="font-size:11px;color:var(--red);margin-top:3px;display:none;">⚠️ Chat ID ต้องเป็นตัวเลขเท่านั้น (เช่น 123456789 หรือ -1001234567890)</div>
     <div style="font-size:11px;color:var(--t3);margin-top:4px;">
       วิธีหา Chat ID: ส่งข้อความหา Bot แล้วใช้ @userinfobot หรือดู webhook.site<br>
       <span style="color:var(--grn);font-weight:600;">✅ ถ้ากรอกไว้ ระบบจะส่งแจ้งเตือน Approve/Reject ตรงมาหาคุณ</span>
@@ -1160,6 +1158,8 @@ async function init(){
   }
 }
 function esc(str){if(str==null)return str;return String(str).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+const TG_ID_RE=/^-?\d+$/;
+function validateTgId(inp){const v=inp.value.trim();const err=document.getElementById('u-tgid-err');if(!err)return;const ok=v===''||TG_ID_RE.test(v);err.style.display=ok?'none':'';inp.style.borderColor=ok?'':'var(--red)';}
 function sanitizePayload(obj){const out={};for(const[k,v]of Object.entries(obj)){if(typeof v==='string')out[k]=v.trim();else out[k]=v;}return out;}
 async function sha256(str){const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 async function doLogin(){
@@ -1184,14 +1184,12 @@ async function doLogin(){
   }catch(e){document.getElementById('lerr').textContent='❌ เกิดข้อผิดพลาด';}
   setBL('btnLogin',false);document.getElementById('loginBtnTxt').innerHTML='🔑 เข้าสู่ระบบ';
 }
+function _show(id,visible){const el=document.getElementById(id);if(el)el.style.display=visible?'':'none';}
 function setupRoleUI(role){
   const isAdmin=role==='admin',isViewer=role==='viewer';
-  document.getElementById('tabDash').style.display=isAdmin?'':'none';
-  document.getElementById('tabReport').style.display=isAdmin?'':'none';
-  document.getElementById('adminTab').style.display=isAdmin?'':'none';
-  document.getElementById('tabReq').style.display=isViewer?'none':'';
-  const btnAdd=document.getElementById('btnAdd');if(btnAdd)btnAdd.style.display=isAdmin?'':'none';
-  const btnReq=document.getElementById('btnNewReq');if(btnReq)btnReq.style.display=isViewer?'none':'';
+  _show('tabDash',isAdmin);_show('tabReport',isAdmin);_show('adminTab',isAdmin);
+  _show('tabReq',!isViewer);_show('btnAdd',isAdmin);_show('btnNewReq',!isViewer);
+  _show('btnImport',isAdmin);_show('btnTemplate',isAdmin);
 }
 let idleTimer=null;
 const IDLE_MS=30*60*1000;
@@ -1219,6 +1217,7 @@ async function loadUsers(){try{S.users=await db('users','GET',null,'?order=name.
 function nav(pg,btn){document.querySelectorAll('.page').forEach(p=>p.classList.remove('act'));document.querySelectorAll('.ntab').forEach(b=>b.classList.remove('act'));document.getElementById('pg-'+pg).classList.add('act');if(btn)btn.classList.add('act');S.curPage=pg;renderPage(pg);}
 function renderPage(pg){if(pg==='dash')renderDash();if(pg==='stock'){renderStock();setTimeout(()=>{const s=document.getElementById('srch');if(s&&document.activeElement!==s)s.focus();},300);}if(pg==='req')renderReqs();if(pg==='report')renderReport();if(pg==='admin'){renderAdmin();setTimeout(loadAuditLog,300);}updBadge();}
 function updBadge(){const n=S.requests.filter(r=>r.status==='pending').length;const b=document.getElementById('rBadge');n>0?(b.style.display='',b.textContent=n):b.style.display='none';document.getElementById('d-pend').textContent=n;}
+function animateCounters(vals){const ids=['d-total','d-low','d-out','d-pend'];ids.forEach((id,i)=>{const el=document.getElementById(id);if(!el)return;const target=vals[i]||0;if(target===0)return;let cur=0;const step=Math.ceil(target/20);const t=setInterval(()=>{cur=Math.min(cur+step,target);el.textContent=cur;if(cur>=target)clearInterval(t);},30);});}
 function navToLowStock(){nav('stock',document.getElementById('tabStock'));setTimeout(()=>{S._dashFilter='low';renderStock();S._dashFilter=null;},100);}
 function navToOutStock(){nav('stock',document.getElementById('tabStock'));setTimeout(()=>{S._dashFilter='out';renderStock();S._dashFilter=null;},100);}
 function navToPendingReq(){nav('req',document.getElementById('tabReq'));setTimeout(()=>{S.reqF='pending';document.querySelectorAll('#pg-req .chip').forEach(b=>b.classList.remove('act'));const p=document.querySelector('#pg-req .chip:nth-child(2)');if(p)p.classList.add('act');renderReqs();},100);}
@@ -1230,9 +1229,12 @@ function renderDash(){
   const COLS=['#c0001a','#1d6fb8','#7c3aed','#d97706','#00913a','#dc2626','#64748b'];
   const catNames=S.cats.map(c=>c.name);const bycat={};catNames.forEach(c=>bycat[c]=0);items.forEach(i=>bycat[i.category]=(bycat[i.category]||0)+(i.bottles||0));
   const maxv=Math.max(...Object.values(bycat),1);
-  document.getElementById('catChart').innerHTML=catNames.map((c,i)=>`<div class="br"><div class="bl" title="${c}">${c}</div><div class="bt"><div class="bf" style="width:${(bycat[c]||0)/maxv*100}%;background:${COLS[i%COLS.length]};"></div></div><div class="bv">${bycat[c]||0}</div></div>`).join('');
+  document.getElementById('catChart').innerHTML=catNames.map((c,i)=>`<div class="br"><div class="bl" title="${c}">${c}</div><div class="bt"><div class="bf" style="width:0%;background:${COLS[i%COLS.length]};" data-w="${(bycat[c]||0)/maxv*100}"></div></div><div class="bv">${bycat[c]||0}</div></div>`).join('');
   const tot=items.length||1;const ok=items.filter(i=>(i.bottles||0)>(i.min_qty||5)).length;
-  document.getElementById('stChart').innerHTML=[{l:'✅ ปกติ',n:ok,c:'#00913a'},{l:'⚠️ ใกล้หมด',n:low,c:'#d97706'},{l:'🔴 หมด',n:out,c:'#c0001a'}].map(p=>`<div class="br"><div class="bl">${p.l}</div><div class="bt"><div class="bf" style="width:${p.n/tot*100}%;background:${p.c};"></div></div><div class="bv">${p.n}</div></div>`).join('');
+  document.getElementById('stChart').innerHTML=[{l:'✅ ปกติ',n:ok,c:'#00913a'},{l:'⚠️ ใกล้หมด',n:low,c:'#d97706'},{l:'🔴 หมด',n:out,c:'#c0001a'}].map(p=>`<div class="br"><div class="bl">${p.l}</div><div class="bt"><div class="bf" style="width:0%;background:${p.c};" data-w="${p.n/tot*100}"></div></div><div class="bv">${p.n}</div></div>`).join('');
+  const pend=S.requests.filter(r=>r.status==='pending').length;
+  animateCounters([items.length,low,out,pend]);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{document.querySelectorAll('.bf[data-w]').forEach(el=>{el.style.width=el.dataset.w+'%';});}));
   const today=new Date(),soon=new Date();soon.setDate(soon.getDate()+60);
   const alerts=[];items.forEach(i=>{const exp=i.expiry_date?new Date(i.expiry_date):null;const bt=i.bottles||0,mn=i.min_qty||5;if(bt===0)alerts.push({t:'out',name:i.name,info:'หมดสต็อก',id:i.id});else if(bt<=mn)alerts.push({t:'warn',name:i.name,info:`คงเหลือ ${bt} ขวด (ขั้นต่ำ ${mn})`,id:i.id});if(exp&&exp<today)alerts.push({t:'exp',name:i.name,info:`หมดอายุ: ${fd(i.expiry_date)}`,id:i.id});else if(exp&&exp<soon)alerts.push({t:'exp',name:i.name,info:`ใกล้หมดอายุ: ${fd(i.expiry_date)}`,id:i.id});});
   const al=document.getElementById('alertList');
@@ -1243,7 +1245,7 @@ function renderDash(){
   const usageMap={};recentReqs.forEach(r=>{usageMap[r.item_name]=(usageMap[r.item_name]||0)+(r.qty||1);});
   const top5=Object.entries(usageMap).sort((a,b)=>b[1]-a[1]).slice(0,5);const maxTop=top5[0]?top5[0][1]:1;
   const COLS2=['#c0001a','#1d6fb8','#7c3aed','#d97706','#00913a'];
-  document.getElementById('topChart').innerHTML=top5.length?top5.map(([name,qty],i)=>`<div class="br"><div class="bl" title="${name}" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</div><div class="bt"><div class="bf" style="width:${qty/maxTop*100}%;background:${COLS2[i]};"></div></div><div class="bv">${qty} ขวด</div></div>`).join(''):'<div style="color:var(--t3);font-size:13px;padding:10px 0;">ยังไม่มีข้อมูล</div>';
+  document.getElementById('topChart').innerHTML=top5.length?top5.map(([name,qty],i)=>`<div class="br"><div class="bl" title="${name}" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</div><div class="bt"><div class="bf" style="width:0%;background:${COLS2[i]};" data-w="${qty/maxTop*100}"></div></div><div class="bv">${qty} ขวด</div></div>`).join(''):'<div style="color:var(--t3);font-size:13px;padding:10px 0;">ยังไม่มีข้อมูล</div>';
   const weekDays=[];for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);weekDays.push(d);}
   const weekData=weekDays.map(d=>{const ds=d.toISOString().slice(0,10);const total=S.requests.filter(r=>r.created_at&&r.created_at.slice(0,10)===ds&&(r.status==='approved'||r.status==='auto_out')).reduce((s,r)=>s+(r.qty||1),0);return{label:d.toLocaleDateString('th-TH',{weekday:'short',day:'numeric'}),value:total};});
   const maxW=Math.max(...weekData.map(d=>d.value),1);
@@ -1338,7 +1340,7 @@ function toggleCamScan(){const wrap=document.getElementById('camScanWrap');const
 async function startCamera(){try{camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280},height:{ideal:720}}});document.getElementById('camVideo').srcObject=camStream;requestAnimationFrame(scanFrame);}catch(e){toast('❌ ไม่สามารถเปิดกล้องได้','err');document.getElementById('camScanWrap').style.display='none';}}
 function stopCamera(){if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}if(camAnimFrame){cancelAnimationFrame(camAnimFrame);camAnimFrame=null;}}
 function scanFrame(){const video=document.getElementById('camVideo');if(!video||!camStream)return;if(video.readyState===video.HAVE_ENOUGH_DATA){const canvas=document.createElement('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;const ctx=canvas.getContext('2d');ctx.drawImage(video,0,0,canvas.width,canvas.height);const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);try{const code=jsQR(imageData.data,imageData.width,imageData.height,{inversionAttempts:'dontInvert'});if(code&&code.data){document.getElementById('fi-bc').value=code.data;document.getElementById('camStatus').textContent='✅ พบบาร์โค้ด: '+code.data;stopCamera();document.getElementById('camScanWrap').style.display='none';document.getElementById('btnCam').textContent='📷 สแกน';toast('✅ สแกนได้: '+code.data,'ok');return;}}catch{}}camAnimFrame=requestAnimationFrame(scanFrame);}
-function loadLots(){const itemId=+document.getElementById('rq-item').value;const item=S.items.find(x=>x.id===itemId);const sel=document.getElementById('rq-lot');if(!item){sel.innerHTML='<option value="">-- เลือก Lot --</option>';return;}const lots=item.lot?[item.lot]:[];sel.innerHTML='<option value="">-- เลือก Lot --</option>'+lots.map(l=>`<option value="${l}">${l}</option>`).join('');}
+function loadLots(){const itemId=parseInt(document.getElementById('rq-item').value,10);const item=S.items.find(x=>x.id===itemId);const sel=document.getElementById('rq-lot');if(!item){sel.innerHTML='<option value="">-- เลือก Lot --</option>';return;}const activeLots=getItemLots(itemId);if(activeLots.length>0){sel.innerHTML='<option value="">-- เลือก Lot --</option>'+activeLots.map(l=>`<option value="${l.lot_no}">${l.lot_no} (${l.qty||0} ขวด${l.expiry_date?' | หมด '+fd(l.expiry_date):''})</option>`).join('');}else if(item.lot){sel.innerHTML=`<option value="">-- เลือก Lot --</option><option value="${item.lot}">${item.lot}</option>`;}else{sel.innerHTML='<option value="">-- ไม่มี Lot --</option>';}}
 function openReqModal(preId=null){document.getElementById('rq-item').innerHTML='<option value="">-- เลือก Reagent --</option>'+S.items.map(i=>`<option value="${i.id}" ${preId===i.id?'selected':''}>${i.name} (${i.bottles||0} ขวด)${i.lot?' | Lot:'+i.lot:''}</option>`).join('');document.getElementById('rq-hosp').innerHTML='<option value="">-- เลือก รพ. --</option>'+S.hosps.map(h=>`<option value="${h.name}">${h.name}</option>`).join('');document.getElementById('rq-del').innerHTML='<option value="">-- เลือกวิธี --</option>'+S.dels.map(d=>`<option value="${d.name}">${d.name}</option>`).join('');document.getElementById('rq-qty').value=1;document.getElementById('rq-note').value='';if(preId)loadLots();else document.getElementById('rq-lot').innerHTML='<option value="">-- เลือก Lot --</option>';openM('mReq');}
 async function submitReq(){const itemId=+document.getElementById('rq-item').value;const hosp=document.getElementById('rq-hosp').value;const del=document.getElementById('rq-del').value;if(!itemId){toast('กรุณาเลือก Reagent','err');return;}if(!hosp){toast('กรุณาเลือก รพ.','err');return;}if(!del){toast('กรุณาเลือกวิธีการส่ง','err');return;}const item=S.items.find(x=>x.id===itemId);const payload={item_id:itemId,item_name:item.name,qty:+document.getElementById('rq-qty').value||1,type:document.getElementById('rq-type').value,priority:document.getElementById('rq-pri').value,note:document.getElementById('rq-note').value||null,hospital:hosp,delivery_method:del,lot:document.getElementById('rq-lot').value||item.lot||null,by_username:S.user.username,by_name:S.user.name,requester_name:S.user.name,status:'pending'};setBL('bSR',true);try{await db('requests','POST',payload);addAuditLog('สร้าง Request',item.name+' '+payload.qty+' ขวด → '+hosp);toast('📤 ส่ง Request เรียบร้อย','ok');await loadRequests();closeM('mReq');renderReqs();updBadge();sendReqNotif(payload);}catch{toast('❌ ส่งไม่ได้','err');}setBL('bSR',false);}
 
@@ -1564,7 +1566,7 @@ function renderAdmin(){
 }
 function openAddUser(){document.getElementById('mUT').textContent='👤 เพิ่ม User';document.getElementById('u-id').value='';['u-name','u-uname','u-pwd','u-tgid','u-lid'].forEach(id=>document.getElementById(id).value='');document.getElementById('u-role').value='staff';document.getElementById('u-req').value='true';document.getElementById('u-pwd-fg').style.display='';S.editId=null;openM('mUser');}
 function openEditUser(id){const u=S.users.find(x=>x.id===id);if(!u)return;S.editId=id;document.getElementById('mUT').textContent='✏️ แก้ไข User';document.getElementById('u-id').value=id;document.getElementById('u-name').value=u.name;document.getElementById('u-uname').value=u.username;document.getElementById('u-pwd').value='';document.getElementById('u-role').value=u.role;document.getElementById('u-req').value=u.require_request?'true':'false';document.getElementById('u-tgid').value=u.telegram_chat_id||'';document.getElementById('u-lid').value=u.line_user_id||'';document.getElementById('u-pwd-fg').style.display='none';openM('mUser');}
-async function saveUser(){const name=document.getElementById('u-name').value.trim();const uname=document.getElementById('u-uname').value.trim();const pwd=document.getElementById('u-pwd').value.trim();const role=document.getElementById('u-role').value;const req=document.getElementById('u-req').value==='true';const tgid=document.getElementById('u-tgid').value.trim()||null;const lid=document.getElementById('u-lid').value.trim()||null;if(!name||!uname){toast('กรุณากรอกชื่อและ Username','err');return;}const payload={name,username:uname,role,require_request:req,active:true,telegram_chat_id:tgid,line_user_id:lid};if(!S.editId&&!pwd){toast('กรุณากรอก Password','err');return;}if(pwd){const ph=await sha256(pwd);payload.password=ph;}setBL('bSU',true);try{if(S.editId)await db('users','PATCH',payload,`?id=eq.${S.editId}`);else await db('users','POST',payload);addAuditLog(S.editId?'แก้ไข User':'เพิ่ม User',name+' ('+uname+') role:'+role);toast(S.editId?'✅ อัปเดต User แล้ว':'✅ เพิ่ม User แล้ว','ok');await loadUsers();closeM('mUser');renderAdmin();}catch(e){toast('❌ บันทึกไม่ได้','err');}setBL('bSU',false);}
+async function saveUser(){const name=document.getElementById('u-name').value.trim();const uname=document.getElementById('u-uname').value.trim();const pwd=document.getElementById('u-pwd').value.trim();const role=document.getElementById('u-role').value;const req=document.getElementById('u-req').value==='true';const tgid=document.getElementById('u-tgid').value.trim()||null;const lid=document.getElementById('u-lid').value.trim()||null;if(!name||!uname){toast('กรุณากรอกชื่อและ Username','err');return;}if(tgid&&!TG_ID_RE.test(tgid)){toast('⚠️ Telegram Chat ID ต้องเป็นตัวเลขเท่านั้น','err');return;}const payload={name,username:uname,role,require_request:req,active:true,telegram_chat_id:tgid,line_user_id:lid};if(!S.editId&&!pwd){toast('กรุณากรอก Password','err');return;}if(pwd){const ph=await sha256(pwd);payload.password=ph;}setBL('bSU',true);try{if(S.editId)await db('users','PATCH',payload,`?id=eq.${S.editId}`);else await db('users','POST',payload);addAuditLog(S.editId?'แก้ไข User':'เพิ่ม User',name+' ('+uname+') role:'+role);toast(S.editId?'✅ อัปเดต User แล้ว':'✅ เพิ่ม User แล้ว','ok');await loadUsers();closeM('mUser');renderAdmin();}catch(e){toast('❌ บันทึกไม่ได้','err');}setBL('bSU',false);}
 function openChangePwd(id){document.getElementById('pwd-uid').value=id;document.getElementById('pwd-new').value='';document.getElementById('pwd-con').value='';openM('mPwd');}
 async function savePwd(){const id=+document.getElementById('pwd-uid').value;const np=document.getElementById('pwd-new').value;const cp=document.getElementById('pwd-con').value;if(!np){toast('กรุณากรอก Password ใหม่','err');return;}if(np!==cp){toast('Password ไม่ตรงกัน','err');return;}const npHash=await sha256(np);setBL('bSP',true);try{await db('users','PATCH',{password:npHash},`?id=eq.${id}`);toast('✅ เปลี่ยน Password แล้ว','ok');closeM('mPwd');}catch{toast('❌ เปลี่ยนไม่ได้','err');}setBL('bSP',false);}
 async function migratePasswords(){const ok=await dlg({icon:'🔒',title:'Migrate Passwords',msg:'Hash password ทุก User เป็น SHA-256',okText:'Migrate',cancelText:'ยกเลิก'});if(!ok)return;let done=0,skip=0;const users=await db('users','GET',null,'?order=id.asc');for(const u of users){if(!/^[0-9a-f]{64}$/.test(u.password||'')){const hashed=await sha256(u.password||'');await db('users','PATCH',{password:hashed},`?id=eq.${u.id}`);done++;}else{skip++;}}toast(`✅ Migrate เสร็จ: ${done} คน (ข้าม ${skip} คน)`,'ok');await loadUsers();renderAdmin();}
